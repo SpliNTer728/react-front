@@ -3,11 +3,11 @@ import { AppContext } from "../Context/AppContext";
 
 export default function Home() {
 
-    const { name } = useContext(AppContext);
+    const { user } = useContext(AppContext);
 
     return (
         <>
-        <p>Welcome, {name}!</p>
+        <h1 className="title">Last Posts</h1>
         </>
     );
 }

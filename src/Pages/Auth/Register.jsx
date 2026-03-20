@@ -5,7 +5,7 @@ import { AppContext } from "../../Context/AppContext";
 
 export default function Register() {
 
-    const {token, setToken} = useContext(AppContext);
+    const {setToken} = useContext(AppContext);
     const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
