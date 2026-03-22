@@ -1,5 +1,21 @@
 # Booking Scheduler — Feature Specification & Context
 
+## Current Status (as of 2026-03-22)
+
+| Area | Status | Notes |
+|---|---|---|
+| Auth (login, register, logout) | ✅ Frontend done | Backend endpoints live |
+| `GET /api/user` | ⚠️ Frontend done, backend missing | Called on every page load — critical gap |
+| Scheduler UI (month/week/list views) | ✅ Frontend done | Running on mock data |
+| `GET /api/schedule/slots` | ❌ Backend missing | Spec below |
+| `POST /api/booking/checkout` | ❌ Backend missing | Spec below |
+| `POST /api/webhooks/stripe` | ❌ Backend missing | Backend-only |
+| Success page UI | ✅ Frontend done | Running on mock data |
+| `GET /api/booking/session/{session_id}` | ❌ Backend missing | Spec below |
+| Niveau system | ⏳ Pending school confirmation | See niveau section |
+
+---
+
 ## Project Overview
 
 This is a **boating school booking application** for summer 2026 (été 2026). Customers book sailing courses, navigation sessions, and voyages. The app is partially built — authentication (login, logout, signup) is complete. The remaining major feature is a **calendar/scheduler** where customers browse available formules, filtered by their skill level (niveau), and book appointments via Stripe Checkout.
@@ -437,15 +453,45 @@ Products to exclude from the calendar: Brevet de Navigation Côtière (Niveau 1 
 
 ## API Contracts (Frontend ↔ Backend)
 
-These are the endpoints the frontend expects. Coordinate with your backend colleague.
+All authenticated endpoints require `Authorization: Bearer {token}` header. Token is obtained from `POST /api/login` or `POST /api/register`.
 
-### GET /api/schedule/slots
+---
+
+### GET /api/user `[⚠️ MISSING — CRITICAL]`
+
+Called automatically on every page load by the frontend to restore the logged-in user's session. Without this, `user` is always `null` after a page refresh even if the token is valid.
+
+**Auth:** Required
+
+**Response:**
+```json
+{
+  "id": 42,
+  "name": "Jean Tremblay",
+  "email": "user@example.com",
+  "role": "user",
+  "actif": true,
+  "niveau": "DEB",
+  "stripe_customer_id": "cus_XYZ789",
+  "email_verified_at": "2026-01-01T00:00:00Z",
+  "created_at": "...",
+  "updated_at": "..."
+}
+```
+
+> `niveau` is read from the user's Stripe Customer metadata and must be included here.
+
+---
+
+### GET /api/schedule/slots `[❌ NOT YET BUILT]`
 
 Fetch available slots for a given month, pre-filtered by the authenticated user's niveau.
 
+**Auth:** Required
+
 **Query params:**
 ```
-month=6&year=2026&format=all&type=all
+month=6&year=2026
 ```
 
 **Response:**
@@ -481,12 +527,17 @@ The backend should:
 1. Read the user's niveau from their Stripe Customer metadata (or a cached version).
 2. Fetch all Stripe Products whose `metadata.niveaux` includes the user's niveau.
 3. Join with `schedule_slots` for the requested month where `status = 'open'` and `spots_remaining > 0`.
-4. Apply any additional format/type filters.
-5. Return merged data.
+4. Return merged data.
 
-### POST /api/booking/checkout
+> Format/type filtering is applied client-side — the backend returns all matching slots for the month.
+
+---
+
+### POST /api/booking/checkout `[❌ NOT YET BUILT]`
 
 Initiate a booking and get a Stripe Checkout URL.
+
+**Auth:** Required
 
 **Request body:**
 ```json
@@ -496,7 +547,7 @@ Initiate a booking and get a Stripe Checkout URL.
 }
 ```
 
-**Response:**
+**Response 200:**
 ```json
 {
   "checkout_url": "https://checkout.stripe.com/c/pay/cs_live_...",
@@ -504,40 +555,64 @@ Initiate a booking and get a Stripe Checkout URL.
 }
 ```
 
+**Response 409** (slot full):
+```json
+{
+  "message": "Cette plage horaire est maintenant complète."
+}
+```
+
 The backend should:
-1. Verify the slot still has capacity (`spots_remaining > 0`).
+1. Verify the slot still has capacity (`spots_remaining > 0`). Return 409 if full.
 2. Verify the user's niveau matches the product's niveaux.
 3. Create a Stripe Checkout Session with:
    - `customer`: the user's `stripe_customer_id`
    - `line_items`: the product's Price
-   - `success_url`: your app's booking confirmation page
-   - `cancel_url`: your app's scheduler page
+   - `success_url`: `https://yourdomain.com/reserver/succes?session_id={CHECKOUT_SESSION_ID}` — note: `{CHECKOUT_SESSION_ID}` is a Stripe template variable, Stripe replaces it automatically
+   - `cancel_url`: `https://yourdomain.com/reserver`
    - `metadata`: `{ slot_id, user_id }`
 4. Create a `bookings` row with `status = 'pending'`.
-5. Return the Checkout Session URL.
+5. Return the Checkout Session URL and session ID.
 
-### POST /api/webhooks/stripe (Backend only — not called by frontend)
+---
+
+### GET /api/booking/session/{session_id} `[❌ NOT YET BUILT]`
+
+Called by the success page when the user returns from Stripe Checkout. The `session_id` comes from the `?session_id=` query param Stripe appends to the `success_url`.
+
+**Auth:** Required. Must validate that the session belongs to the authenticated user.
+
+**Response 200:**
+```json
+{
+  "id": "book_7k2m9x",
+  "productName": "5 à 8 - Découvrir la voile",
+  "format": "Soirée",
+  "type": "slot",
+  "date": "2026-06-18",
+  "startTime": "17:00",
+  "endTime": "20:00",
+  "lieu": "Yacht Club de Beaconsfield",
+  "totalPaid": 85.00,
+  "currency": "CAD",
+  "stripeReceiptUrl": "https://pay.stripe.com/receipts/...",
+  "customerEmail": "jean.tremblay@email.com"
+}
+```
+
+> Note: the booking status may still be `pending` when the user hits this page — the webhook fires asynchronously. This endpoint should return the session data regardless of booking confirmation status.
+
+---
+
+### POST /api/webhooks/stripe `[❌ NOT YET BUILT — backend only]`
+
+Not called by the frontend. Stripe calls this directly after payment.
 
 Handles `checkout.session.completed`:
 1. Look up the booking by `stripe_checkout_session_id`.
 2. Update booking `status` to `confirmed`.
 3. Decrement `spots_remaining` on the schedule slot.
 4. If `spots_remaining === 0`, set slot `status` to `full`.
-
-### GET /api/user/profile
-
-Returns the current user's profile including their Stripe-sourced niveau.
-
-**Response:**
-```json
-{
-  "id": 42,
-  "email": "user@example.com",
-  "name": "Jean Tremblay",
-  "stripe_customer_id": "cus_XYZ789",
-  "niveau": "DEB"
-}
-```
 
 ---
 
@@ -563,7 +638,7 @@ interface SchedulerState {
   viewMode: "month" | "week" | "list";
 
   // Selection
-  selectedDay: number | null;  // Day of month clicked in calendar
+  selectedDay: Date | null;    // Day clicked in calendar
   selectedSlot: Slot | null;   // Slot selected for booking
 
   // Data
@@ -614,15 +689,26 @@ interface Slot {
 
 ---
 
-## Summary — What You Need to Build (Frontend)
+## Summary
 
-1. **SchedulerPage** — container component that fetches data and manages state.
-2. **FilterBar** — niveau display, format dropdown, type toggle, view toggle (month/week/list), availability count.
-3. **MonthView** — monthly grid with day cells showing formule badges.
-4. **WeekView** — 7-column time grid with hour rows, slot cards in cells.
-5. **ListView** — chronological flat list of slots with inline details.
-6. **DayDetailPanel** — side panel showing slots for a selected day.
-7. **BookingConfirmation** — modal/panel confirming the selected slot before redirecting to Stripe.
-8. **SuccessPage** — shown after returning from Stripe Checkout (separate route).
+### Frontend — all components built ✅
 
-All product data comes from the API (which sources it from Stripe). All schedule/availability data comes from the API (which sources it from MySQL). The frontend never talks to Stripe directly — everything goes through your Laravel backend.
+1. **SchedulerPage** (`src/Pages/Scheduler.tsx`) ✅ — running on mock data, two TODO comments mark where to swap in real API calls
+2. **FilterBar** (`src/Components/Scheduler/FilterBar.tsx`) ✅
+3. **MonthView** (`src/Components/Scheduler/MonthView.tsx`) ✅
+4. **WeekView** (`src/Components/Scheduler/WeekView.tsx`) ✅
+5. **ListView** (`src/Components/Scheduler/ListView.tsx`) ✅
+6. **DayDetailPanel** (`src/Components/Scheduler/DayDetailPanel.tsx`) ✅
+7. **BookingConfirmation** (`src/Components/Scheduler/BookingConfirmation.tsx`) ✅
+8. **SuccessPage** (`src/Pages/BookingSuccess.tsx`) ✅ — running on mock data, one TODO comment marks where to swap in the real API call
+
+### Backend — what's still needed
+
+See the API Contracts section above. Priority order:
+1. `GET /api/user` — unblocks the auth session restore bug
+2. `GET /api/schedule/slots` — unblocks the scheduler
+3. `POST /api/booking/checkout` — unblocks the booking flow
+4. `POST /api/webhooks/stripe` — required for booking confirmation
+5. `GET /api/booking/session/{session_id}` — unblocks the success page
+
+All product data comes from the API (which sources it from Stripe). All schedule/availability data comes from the API (which sources it from MySQL). The frontend never talks to Stripe directly — everything goes through the Laravel backend.
