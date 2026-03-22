@@ -1,10 +1,13 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import AppLayout from './layouts/AppLayout'
 import AuthLayout from './layouts/AuthLayout'
+import SchedulerLayout from './layouts/SchedulerLayout'
 import GuestRoute from './Components/GuestRoute'
+import ProtectedRoute from './Components/ProtectedRoute'
 import Home from './Pages/Home'
 import Login from './Pages/Auth/Login'
 import Register from './Pages/Auth/Register'
+import Scheduler from './Pages/Scheduler'
 
 export default function App() {
     return (
@@ -13,6 +16,13 @@ export default function App() {
                 {/* Public pages — accessible to everyone */}
                 <Route element={<AppLayout />}>
                     <Route path="/" element={<Home />} />
+                </Route>
+
+                {/* Scheduler — authenticated users only, full-width dark layout */}
+                <Route element={<ProtectedRoute />}>
+                    <Route element={<SchedulerLayout />}>
+                        <Route path="/reserver" element={<Scheduler />} />
+                    </Route>
                 </Route>
 
                 {/* Guest-only pages — uses the centered auth card shell */}
