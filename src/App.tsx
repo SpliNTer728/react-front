@@ -8,6 +8,7 @@ import Home from './Pages/Home'
 import Login from './Pages/Auth/Login'
 import Register from './Pages/Auth/Register'
 import Scheduler from './Pages/Scheduler'
+import BookingSuccess from './Pages/BookingSuccess'
 
 export default function App() {
     return (
@@ -22,6 +23,7 @@ export default function App() {
                 <Route element={<ProtectedRoute />}>
                     <Route element={<SchedulerLayout />}>
                         <Route path="/reserver" element={<Scheduler />} />
+                        <Route path="/reserver/succes" element={<BookingSuccess />} />
                     </Route>
                 </Route>
 
