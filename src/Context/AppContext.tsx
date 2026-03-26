@@ -8,7 +8,7 @@ type AppContextType = {
     token: string | null;
     user: User | null;
     isAuthenticated: boolean;
-    login: (token: string) => Promise<void>;
+    login: (token: string) => void;
     logout: () => Promise<void>;
     setToken: (token: string | null) => void;
     setUser: (user: User | null) => void;
@@ -30,11 +30,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (res.ok) {
                 const data = await res.json();
                 setUser(data);
-            } else {
-                // Token is invalid — clear it
-                localStorage.removeItem(TOKEN_KEY);
-                setToken(null);
             }
+            // Non-200: /api/user not ready yet — keep the token
         } catch {
             // ignore network errors
         }
@@ -44,13 +41,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (token && !user) {
             fetchUser(token);
         }
-    }, []);
+    }, [token]);
 
-    const login = useCallback(async (newToken: string) => {
+    const login = useCallback((newToken: string) => {
         localStorage.setItem(TOKEN_KEY, newToken);
         setToken(newToken);
-        await fetchUser(newToken);
-    }, [fetchUser]);
+    }, []);
 
     const logout = useCallback(async () => {
         if (token) {

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { Slot } from '@/types';
 import { DAYS_SHORT, GRID_HOURS, isSameDay, getWeekDates, getFormatStyle, formatWeekLabel, parseSlotDate, padHour } from './utils';
 
@@ -13,6 +13,7 @@ type Props = {
 };
 
 export default function WeekView({ weekBase, slots, selectedDay, onDayClick, onBook, onPrevWeek, onNextWeek }: Props) {
+    const [activeSlotId, setActiveSlotId] = useState<number | null>(null);
     const weekDates = useMemo(() => getWeekDates(weekBase), [weekBase]);
 
     // Build slot grid: key = "dayIndex-hour" → Slot[]
@@ -69,23 +70,33 @@ export default function WeekView({ weekBase, slots, selectedDay, onDayClick, onB
                 style={{ gridTemplateColumns: '64px repeat(7, 1fr)', borderBottom: '1px solid rgba(148,163,184,0.06)' }}
             >
                 <div />
-                {weekDates.map((wd, i) => (
-                    <div
-                        key={i}
-                        className="text-center py-3 px-1"
-                        style={{ borderLeft: '1px solid rgba(148,163,184,0.04)' }}
-                    >
-                        <div className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
-                            {DAYS_SHORT[i]}
-                        </div>
+                {weekDates.map((wd, i) => {
+                    const isSelected = selectedDay !== null && isSameDay(wd, selectedDay);
+                    return (
                         <div
-                            className="text-lg font-bold font-mono mt-0.5"
-                            style={{ color: isSameDay(wd, today) ? '#38bdf8' : '#94a3b8' }}
+                            key={i}
+                            className="text-center py-3 px-1 transition-colors duration-150"
+                            style={{
+                                borderLeft: '1px solid rgba(148,163,184,0.04)',
+                                borderTop: isSelected ? '2px solid #38bdf8' : '2px solid transparent',
+                                background: isSelected ? 'rgba(56,189,248,0.08)' : 'transparent',
+                            }}
                         >
-                            {wd.getDate()}
+                            <div
+                                className="text-sm font-semibold uppercase tracking-wide"
+                                style={{ color: isSelected ? '#38bdf8' : '#64748b' }}
+                            >
+                                {DAYS_SHORT[i]}
+                            </div>
+                            <div
+                                className="text-lg font-bold font-mono mt-0.5"
+                                style={{ color: isSelected ? '#38bdf8' : isSameDay(wd, today) ? '#38bdf8' : '#94a3b8' }}
+                            >
+                                {wd.getDate()}
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Time grid */}
@@ -94,13 +105,17 @@ export default function WeekView({ weekBase, slots, selectedDay, onDayClick, onB
                     <div className="py-12 px-6 text-center text-slate-600 text-sm">
                         Aucune disponibilité cette semaine pour votre niveau.
                     </div>
-                ) : activeHours.map((hour) => (
+                ) : activeHours.map((hour, i) => {
+                    const prevHour = i > 0 ? activeHours[i - 1] : null;
+                    const isEveningStart = hour >= 17 && (prevHour === null || prevHour < 17);
+                    return (
                     <div
                         key={hour}
                         className="grid min-h-[100px]"
                         style={{
                             gridTemplateColumns: '64px repeat(7, 1fr)',
                             borderBottom: '1px solid rgba(148,163,184,0.04)',
+                            borderTop: isEveningStart ? '4px solid rgba(148,163,184,0.25)' : 'none',
                         }}
                     >
                         {/* Hour label */}
@@ -125,9 +140,9 @@ export default function WeekView({ weekBase, slots, selectedDay, onDayClick, onB
                                     }}
                                     className="p-1 transition-colors duration-150"
                                     style={{
-                                        borderLeft: '1px solid rgba(148,163,184,0.04)',
+                                        borderLeft: isSelected ? '2px solid rgba(56,189,248,0.3)' : '1px solid rgba(148,163,184,0.04)',
                                         cursor:     cellSlots.length > 0 ? 'pointer' : 'default',
-                                        background: isSelected ? 'rgba(56,189,248,0.06)' : 'transparent',
+                                        background: isSelected ? 'rgba(56,189,248,0.07)' : 'transparent',
                                     }}
                                 >
                                     {cellSlots.map((s) => {
@@ -135,9 +150,18 @@ export default function WeekView({ weekBase, slots, selectedDay, onDayClick, onB
                                         return (
                                             <div
                                                 key={s.id}
-                                                onClick={(e) => { e.stopPropagation(); onBook(s); }}
-                                                className="text-sm px-2 py-1.5 rounded mb-1 font-medium border cursor-pointer transition-transform duration-150 hover:scale-[1.03] leading-snug"
-                                                style={{ background: fc.bg, color: fc.text, borderColor: fc.border, lineHeight: '1.4' }}
+                                                onClick={(e) => { e.stopPropagation(); setActiveSlotId(activeSlotId === s.id ? null : s.id); onBook(s); }}
+                                                className="rounded mb-1 font-medium border cursor-pointer transition-all duration-200 leading-snug"
+                                                style={{
+                                                    background:  fc.bg,
+                                                    color:       fc.text,
+                                                    borderColor: activeSlotId === s.id ? '#38bdf8' : fc.border,
+                                                    boxShadow:   activeSlotId === s.id ? '0 0 0 1px rgba(56,189,248,0.4), 0 6px 16px rgba(56,189,248,0.2)' : 'none',
+                                                    lineHeight:  '1.4',
+                                                    padding:     activeSlotId === s.id ? '12px 16px' : '6px 8px',
+                                                    fontSize:    activeSlotId === s.id ? '15px' : '13px',
+                                                    transform:   activeSlotId === s.id ? 'scale(1.04)' : 'scale(1)',
+                                                }}
                                             >
                                                 {s.product_name}
                                                 <div className="opacity-70 mt-0.5 text-xs font-mono">
@@ -150,7 +174,8 @@ export default function WeekView({ weekBase, slots, selectedDay, onDayClick, onB
                             );
                         })}
                     </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );

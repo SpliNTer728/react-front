@@ -29,8 +29,9 @@ export default function SchedulerPage() {
 
     // ── UI state ──────────────────────────────────────────────────────────
     const [viewMode,     setViewMode]     = useState<ViewMode>('month');
-    const [filterFormat, setFilterFormat] = useState('all');
-    const [filterType,   setFilterType]   = useState('all');
+    const [filterFormat,    setFilterFormat]    = useState('all');
+    const [filterType,      setFilterType]      = useState('all');
+    const [filterWomenOnly, setFilterWomenOnly] = useState(false);
     const [selectedDay,  setSelectedDay]  = useState<Date | null>(null);
     const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
     const [showConfirm,  setShowConfirm]  = useState(false);
@@ -41,11 +42,11 @@ export default function SchedulerPage() {
     const [error,           setError]           = useState<string | null>(null);
     const [checkoutLoading, setCheckoutLoading] = useState(false);
 
-    const userNiveau = (user?.niveau as string | undefined) ?? 'DEB';
+    const userNiveau = user?.niveau ?? 1;
     const isAdmin    = user?.role === 'admin';
 
     // Allows admin to override niveau for testing
-    const [niveauOverride, setNiveauOverride] = useState<string | null>(null);
+    const [niveauOverride, setNiveauOverride] = useState<number | null>(null);
     const activeNiveau = isAdmin && niveauOverride ? niveauOverride : userNiveau;
 
     // ── Data fetching ─────────────────────────────────────────────────────
@@ -80,11 +81,12 @@ export default function SchedulerPage() {
 
     // ── Derived/filtered slots ────────────────────────────────────────────
     const filteredSlots = useMemo(() => slots.filter((s) => {
-        // Niveau filtering is server-side; client-side format/type filters only
-        if (filterFormat !== 'all' && s.format !== filterFormat) return false;
-        if (filterType   !== 'all' && s.type   !== filterType)   return false;
+        // Niveau filtering is server-side; client-side format/type/women filters only
+        if (filterFormat    !== 'all' && s.format        !== filterFormat) return false;
+        if (filterType      !== 'all' && s.type          !== filterType)   return false;
+        if (filterWomenOnly && !s.women_sailing) return false;
         return true;
-    }), [slots, filterFormat, filterType]);
+    }), [slots, filterFormat, filterType, filterWomenOnly]);
 
     const slotsThisMonth = useMemo(() =>
         filteredSlots.filter((s) => {
@@ -125,7 +127,7 @@ export default function SchedulerPage() {
         setShowConfirm(true);
     };
 
-    const handleCheckout = async () => {
+    const handleCheckout = async (quantity: number) => {
         if (!selectedSlot) return;
         setCheckoutLoading(true);
         try {
@@ -133,14 +135,21 @@ export default function SchedulerPage() {
             // const res = await fetch('/api/booking/checkout', {
             //   method: 'POST',
             //   headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            //   body: JSON.stringify({ slot_id: selectedSlot.id, stripe_product_id: selectedSlot.stripe_product_id }),
+            //   body: JSON.stringify({ slot_id: selectedSlot.id, stripe_product_id: selectedSlot.stripe_product_id, quantity }),
             // });
+            // if (res.status === 409) {
+            //   setShowConfirm(false);
+            //   setSelectedSlot(null);
+            //   setError('Ce créneau est maintenant complet.');
+            //   fetchSlots(currentMonth, currentYear, activeNiveau);
+            //   return;
+            // }
             // if (!res.ok) throw new Error('Impossible de créer la session de paiement.');
             // const { checkout_url } = await res.json();
             // window.location.href = checkout_url;
 
             await new Promise((r) => setTimeout(r, 1500)); // simulate
-            alert(`[Mock] POST /api/booking/checkout\n{ slot_id: ${selectedSlot.id}, stripe_product_id: "${selectedSlot.stripe_product_id}" }\n\n→ Would redirect to Stripe Checkout`);
+            alert(`[Mock] POST /api/booking/checkout\n{ slot_id: ${selectedSlot.id}, stripe_product_id: "${selectedSlot.stripe_product_id}", quantity: ${quantity} }\n\n→ Would redirect to Stripe Checkout`);
             setShowConfirm(false);
             setSelectedSlot(null);
         } catch (e) {
@@ -186,13 +195,15 @@ export default function SchedulerPage() {
                     userNiveau={isAdmin && niveauOverride ? niveauOverride : userNiveau}
                     filterFormat={filterFormat}
                     filterType={filterType}
+                    filterWomenOnly={filterWomenOnly}
                     viewMode={viewMode}
                     visibleCount={visibleCount}
                     isAdmin={isAdmin}
                     onFormatChange={setFilterFormat}
                     onTypeChange={setFilterType}
+                    onWomenOnlyChange={setFilterWomenOnly}
                     onViewChange={handleViewChange}
-                    onNiveauChange={(n) => setNiveauOverride(n)}
+                    onNiveauChange={setNiveauOverride}
                 />
 
                 {/* Error state */}

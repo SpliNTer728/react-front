@@ -6,7 +6,7 @@ export type User = {
     email_verified_at: string | null;
     role: string;
     actif: boolean;
-    niveau?: string;
+    niveau?: number;
     created_at: string;
     updated_at: string;
     [key: string]: unknown;
@@ -20,7 +20,7 @@ export type Slot = {
     product_name: string;
     type: 'slot' | 'formule';
     format: string;
-    niveaux: string[];
+    niveau: number;
     date: string;         // ISO date string: "2026-06-15"
     start_time: string;   // "HH:mm"
     end_time: string;
@@ -28,6 +28,8 @@ export type Slot = {
     max_spots: number;
     duree_heures: number | null;
     lieu: string;
+    women_sailing: boolean;
+    nb_max_personnes: number | null;
 };
 
 export type SlotsApiResponse = {
@@ -36,7 +38,7 @@ export type SlotsApiResponse = {
         month: number;
         year: number;
         total_slots: number;
-        user_niveau: string;
+        user_niveau: number;
     };
 };
 
