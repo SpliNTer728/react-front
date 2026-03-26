@@ -36,7 +36,8 @@ Chaque ligne représente une réservation d’un client pour un créneau.
 | schedule_slot_id | int | FK vers `schedule_slots` |
 | stripe_customer_id | string | Le Stripe Customer qui a réservé |
 | stripe_checkout_session_id | string | ID de la session Stripe Checkout |
-| stripe_payment_intent_id | string | Reçu via le webhook Stripe |
+| stripe_payment_intent_id | string | Reçu via le webhook Stripe (⚠️ doit être string — ex. `pi_3Abc...`) |
+| quantity | int | Nombre de places réservées (client + accompagnants) — default `1` |
 | status | enum | `pending`, `confirmed`, `cancelled`, `refunded` |
 | created_at | timestamp |  |
 
@@ -172,8 +173,10 @@ Retourne les créneaux disponibles pour un mois donné, filtrés par le niveau d
       "end_time": "16:00",
       "spots_remaining": 3,
       "max_spots": 4,
+      "nb_max_personnes": 4,
       "duree_heures": 14,
-      "lieu": "Yacht Club de Beaconsfield"
+      "lieu": "Yacht Club de Beaconsfield",
+      "women_sailing": false
     }
   ],
   "meta": {
@@ -206,9 +209,12 @@ Crée une session Stripe Checkout et retourne l’URL de paiement.
 ```json
 {
   "slot_id": 1,
-  "stripe_product_id": "prod_ABC123"
+  "stripe_product_id": "prod_ABC123",
+  "quantity": 2
 }
 ```
+
+> `quantity` est le nombre total de places (client + accompagnants). Minimum `1`. Le frontend l'envoie toujours, même si c'est `1`.
 
 **Réponse 200 :**
 
@@ -228,15 +234,15 @@ Crée une session Stripe Checkout et retourne l’URL de paiement.
 ```
 
 **Logique backend :**
-1. Vérifier que le créneau a encore de la capacité (`spots_remaining > 0`). Retourner 409 si complet.
+1. Vérifier que `quantity <= spots_remaining`. Retourner 409 si insuffisant.
 2. Vérifier que le niveau du client (int) est ≥ au niveau du produit.
 3. Créer une Stripe Checkout Session avec :
 - `customer` : le `stripe_customer_id` du client
-- `line_items` : le Price du produit
+- `line_items` : le Price du produit avec `quantity` (Stripe multiplie le prix automatiquement)
 - `success_url` : `https://yourdomain.com/reserver/succes?session_id={CHECKOUT_SESSION_ID}` — `{CHECKOUT_SESSION_ID}` est un template Stripe, remplacé automatiquement
 - `cancel_url` : `https://yourdomain.com/reserver`
-- `metadata` : `{ slot_id, user_id }`
-4. Créer une ligne dans `bookings` avec `status = 'pending'`.
+- `metadata` : `{ slot_id, user_id, quantity }`
+4. Créer une ligne dans `bookings` avec `status = ‘pending’` et `quantity`.
 5. Retourner l’URL et le session ID.
 
 ---
@@ -254,7 +260,7 @@ Route appelée directement par Stripe après un paiement. Le frontend n’appell
 2. Trouver la réservation par `stripe_checkout_session_id`.
 3. Mettre à jour le `status` de la réservation à `confirmed`.
 4. Stocker le `stripe_payment_intent_id`.
-5. Décrémenter `spots_remaining` sur le `schedule_slot`.
+5. Décrémenter `spots_remaining` de `quantity` sur le `schedule_slot`.
 6. Si `spots_remaining === 0`, mettre le `status` du créneau à `full`.
 
 **Configuration requise :** Un webhook endpoint doit être créé dans le dashboard Stripe (Developers → Webhooks) pointant vers cette URL, avec l’événement `checkout.session.completed` activé. Le webhook signing secret doit être stocké dans le `.env` Laravel (ex. `STRIPE_WEBHOOK_SECRET`).
