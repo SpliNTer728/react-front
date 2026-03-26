@@ -26,6 +26,9 @@ export default function SchedulerLayout() {
                         <Link to="/reserver" className="text-sm text-slate-400 hover:text-slate-200 transition-colors">
                             Réserver
                         </Link>
+                        <Link to="/formules" className="text-sm text-slate-400 hover:text-slate-200 transition-colors">
+                            Formules
+                        </Link>
                     </div>
                     <div className="flex items-center gap-4">
                         {user && (

@@ -401,13 +401,15 @@ The **niveau filter is the most important**. It is auto-set from the logged-in u
    - Formule name
    - Date and time
    - Location
-   - Spots remaining
+   - Spots remaining (updated live as guest count changes)
+   - Guest picker (stepper +/−): hidden if `nb_max_personnes` is null. Max guests = `min(nb_max_personnes - 1, spots_remaining - 1)`
+   - Live total price (price × quantity)
    - A note: "Vous serez redirigé vers Stripe Checkout pour finaliser le paiement."
 3. User clicks "Réserver →" to confirm.
-4. Frontend calls `POST /api/booking/checkout` with `{ slot_id, stripe_product_id }`.
+4. Frontend calls `POST /api/booking/checkout` with `{ slot_id, stripe_product_id, quantity }`.
 5. Backend:
-   - Validates the slot still has capacity.
-   - Creates a Stripe Checkout Session tied to the Product/Price and Customer.
+   - Validates `quantity <= spots_remaining`. Returns 409 if not.
+   - Creates a Stripe Checkout Session with `quantity` on the line item.
    - Returns the Checkout Session URL.
 6. Frontend redirects the user to the Stripe Checkout URL.
 7. After payment:
@@ -510,6 +512,7 @@ month=6&year=2026
       "end_time": "16:00",
       "spots_remaining": 3,
       "max_spots": 4,
+      "nb_max_personnes": 4,
       "duree_heures": 14,
       "lieu": "Yacht Club de Beaconsfield"
     }
@@ -543,9 +546,12 @@ Initiate a booking and get a Stripe Checkout URL.
 ```json
 {
   "slot_id": 1,
-  "stripe_product_id": "prod_ABC123"
+  "stripe_product_id": "prod_ABC123",
+  "quantity": 2
 }
 ```
+
+> `quantity` = total places (client + accompagnants). Always sent, minimum `1`.
 
 **Response 200:**
 ```json
@@ -563,16 +569,17 @@ Initiate a booking and get a Stripe Checkout URL.
 ```
 
 The backend should:
-1. Verify the slot still has capacity (`spots_remaining > 0`). Return 409 if full.
+1. Verify `quantity <= spots_remaining`. Return 409 if not.
 2. Verify the user's niveau matches the product's niveaux.
 3. Create a Stripe Checkout Session with:
    - `customer`: the user's `stripe_customer_id`
-   - `line_items`: the product's Price
+   - `line_items`: the product's Price with `quantity` (Stripe multiplies the price automatically)
    - `success_url`: `https://yourdomain.com/reserver/succes?session_id={CHECKOUT_SESSION_ID}` — note: `{CHECKOUT_SESSION_ID}` is a Stripe template variable, Stripe replaces it automatically
    - `cancel_url`: `https://yourdomain.com/reserver`
-   - `metadata`: `{ slot_id, user_id }`
-4. Create a `bookings` row with `status = 'pending'`.
+   - `metadata`: `{ slot_id, user_id, quantity }`
+4. Create a `bookings` row with `status = 'pending'` and `quantity`.
 5. Return the Checkout Session URL and session ID.
+6. On `checkout.session.completed` webhook: decrement `spots_remaining` by `quantity` (not 1).
 
 ---
 

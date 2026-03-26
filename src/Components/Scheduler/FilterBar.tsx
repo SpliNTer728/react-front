@@ -25,27 +25,31 @@ const selectStyle: React.CSSProperties = {
 };
 
 type Props = {
-    userNiveau: string;
+    userNiveau: number;
     filterFormat: string;
     filterType: string;
+    filterWomenOnly: boolean;
     viewMode: ViewMode;
     visibleCount: number;
     isAdmin: boolean;
     onFormatChange: (f: string) => void;
     onTypeChange: (t: string) => void;
+    onWomenOnlyChange: (v: boolean) => void;
     onViewChange: (v: ViewMode) => void;
-    onNiveauChange: (n: string) => void;
+    onNiveauChange: (n: number) => void;
 };
 
 export default function FilterBar({
     userNiveau,
     filterFormat,
     filterType,
+    filterWomenOnly,
     viewMode,
     visibleCount,
     isAdmin,
     onFormatChange,
     onTypeChange,
+    onWomenOnlyChange,
     onViewChange,
     onNiveauChange,
 }: Props) {
@@ -58,16 +62,18 @@ export default function FilterBar({
                 backdropFilter: 'blur(12px)',
             }}
         >
-            {/* Niveau */}
+            {/* Niveau — TODO: uncomment when niveau system is ready
             <div className="flex flex-col gap-1">
                 <div className="text-sm font-semibold text-slate-500 uppercase tracking-widest">
                     Votre niveau
                 </div>
                 {isAdmin ? (
                     <input
-                        type="text"
+                        type="number"
+                        min={1}
+                        max={22}
                         value={userNiveau}
-                        onChange={(e) => onNiveauChange(e.target.value)}
+                        onChange={(e) => onNiveauChange(Number(e.target.value))}
                         style={{ ...selectStyle, appearance: 'auto', width: '90px' }}
                     />
                 ) : (
@@ -81,6 +87,7 @@ export default function FilterBar({
             </div>
 
             <div className="w-px h-9 bg-slate-800" />
+            */}
 
             {/* Format */}
             <div className="flex flex-col gap-1">
@@ -116,6 +123,33 @@ export default function FilterBar({
                         </button>
                     ))}
                 </div>
+            </div>
+
+            <div className="w-px h-9 bg-slate-800" />
+
+            {/* Women sailing */}
+            <div className="flex flex-col gap-1">
+                <div className="text-sm font-semibold text-slate-500 uppercase tracking-widest">
+                    Voile féminine
+                </div>
+                <button
+                    onClick={() => onWomenOnlyChange(!filterWomenOnly)}
+                    className="px-4 py-2 rounded-lg text-base font-semibold border transition-all duration-200 cursor-pointer"
+                    style={{
+                        borderColor: filterWomenOnly ? '#f472b6' : '#334155',
+                        background:  filterWomenOnly ? 'rgba(244,114,182,0.12)' : 'transparent',
+                        color:       filterWomenOnly ? '#f472b6' : '#94a3b8',
+                    }}
+                >
+                    <span className="flex items-center gap-2">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="12" cy="8.5" r="6.5" stroke="currentColor" strokeWidth="1.8"/>
+                            <line x1="12" y1="15" x2="12" y2="22.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                            <line x1="8.5" y1="19" x2="15.5" y2="19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                        </svg>
+                        Seulement
+                    </span>
+                </button>
             </div>
 
             <div className="flex-1" />

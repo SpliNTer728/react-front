@@ -158,7 +158,7 @@ export default function Home() {
                             {/* Partner logos */}
                             <div className="flex flex-col items-center gap-0">
                                 <img
-                                    src="https://pareavirer.com/wp-content/uploads/2023/06/Pare-a-virer-Facebook.jpg"
+                                    src="/beaconsfield-club.png"
                                     alt="Logo Paré à virer"
                                     className="h-56 w-72 object-contain hover:grayscale-0 transition rounded mb-2"
                                     loading="lazy"

@@ -4,5 +4,5 @@ import { useAppContext } from '../Context/AppContext'
 export default function GuestRoute() {
     const { isAuthenticated } = useAppContext()
 
-    return isAuthenticated ? <Navigate to="/" replace /> : <Outlet />
+    return isAuthenticated ? <Navigate to="/reserver" replace /> : <Outlet />
 }

@@ -17,6 +17,9 @@ export default function AppLayout() {
                     <Link to="/" className="text-lg font-semibold text-[#504e6e]">
                         Swen
                     </Link>
+                    <Link to="/reserver" className="text-sm text-gray-600 hover:text-gray-900">
+                        Réserver
+                    </Link>
                     <div className="flex items-center gap-4">
                         {user && (
                             <span className="text-sm text-gray-500">{user.name}</span>

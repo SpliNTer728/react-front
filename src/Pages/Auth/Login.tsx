@@ -36,8 +36,8 @@ export default function Login() {
         if (!res.ok) {
             setErrors(data.errors ?? { general: [data.message ?? 'Login failed'] })
         } else {
-            await login(data.token)
-            navigate('/')
+            login(data.token)
+            navigate('/reserver')
         }
     }
 

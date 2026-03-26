@@ -9,6 +9,7 @@ import Login from './Pages/Auth/Login'
 import Register from './Pages/Auth/Register'
 import Scheduler from './Pages/Scheduler'
 import BookingSuccess from './Pages/BookingSuccess'
+import Bundles from './Pages/Bundles'
 
 export default function App() {
     return (
@@ -24,6 +25,7 @@ export default function App() {
                     <Route element={<SchedulerLayout />}>
                         <Route path="/reserver" element={<Scheduler />} />
                         <Route path="/reserver/succes" element={<BookingSuccess />} />
+                        <Route path="/formules" element={<Bundles />} />
                     </Route>
                 </Route>
 

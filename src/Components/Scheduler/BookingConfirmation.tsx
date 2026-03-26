@@ -1,10 +1,11 @@
+import { useState } from 'react';
 import type { Slot } from '@/types';
 import { MONTHS, parseSlotDate, padHour } from './utils';
 
 type Props = {
     slot: Slot;
     loading: boolean;
-    onConfirm: () => void;
+    onConfirm: (quantity: number) => void;
     onCancel: () => void;
 };
 
@@ -12,6 +13,16 @@ export default function BookingConfirmation({ slot, loading, onConfirm, onCancel
     const slotDate = parseSlotDate(slot.date, slot.start_time);
     const dateLabel = `${slotDate.getDate()} ${MONTHS[slotDate.getMonth()]} ${slotDate.getFullYear()}`;
     const timeLabel = `${padHour(slotDate.getHours())}:00`;
+
+    const maxGuests = slot.nb_max_personnes != null
+        ? Math.min(slot.nb_max_personnes - 1, slot.spots_remaining - 1)
+        : 0;
+    const showGuestPicker = maxGuests > 0;
+
+    const [guestCount, setGuestCount] = useState(0);
+    const quantity = 1 + guestCount;
+
+    const spotsAfter = slot.spots_remaining - quantity;
 
     return (
         <div
@@ -38,9 +49,53 @@ export default function BookingConfirmation({ slot, loading, onConfirm, onCancel
                     📅 {dateLabel}<br />
                     🕐 {timeLabel}<br />
                     📍 {slot.lieu || 'À définir'}<br />
-                    👥 {slot.spots_remaining} place{slot.spots_remaining > 1 ? 's' : ''} restante{slot.spots_remaining > 1 ? 's' : ''}
+                    👥{' '}
+                    <span style={{ color: spotsAfter <= 2 ? '#f87171' : '#34d399' }}>
+                        {spotsAfter} place{spotsAfter > 1 ? 's' : ''} restante{spotsAfter > 1 ? 's' : ''} après cette réservation
+                    </span>
                 </div>
             </div>
+
+            {/* Guest picker */}
+            {showGuestPicker && (
+                <div
+                    className="rounded-xl p-4 mb-4"
+                    style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(148,163,184,0.1)' }}
+                >
+                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                        Accompagnants
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-300">
+                            Nombre de personnes supplémentaires
+                        </span>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => setGuestCount((n) => Math.max(0, n - 1))}
+                                disabled={guestCount === 0}
+                                className="w-8 h-8 rounded-lg text-base font-bold border border-slate-700 bg-transparent text-slate-300 cursor-pointer disabled:opacity-30 disabled:cursor-default hover:border-slate-500 transition-colors"
+                            >
+                                −
+                            </button>
+                            <span className="text-slate-200 font-semibold w-4 text-center">
+                                {guestCount}
+                            </span>
+                            <button
+                                onClick={() => setGuestCount((n) => Math.min(maxGuests, n + 1))}
+                                disabled={guestCount === maxGuests}
+                                className="w-8 h-8 rounded-lg text-base font-bold border border-slate-700 bg-transparent text-slate-300 cursor-pointer disabled:opacity-30 disabled:cursor-default hover:border-slate-500 transition-colors"
+                            >
+                                +
+                            </button>
+                        </div>
+                    </div>
+                    {quantity > 1 && (
+                        <div className="mt-2 text-xs text-slate-500 text-right">
+                            {quantity} places réservées au total
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Stripe note */}
             <div
@@ -63,12 +118,12 @@ export default function BookingConfirmation({ slot, loading, onConfirm, onCancel
                     Annuler
                 </button>
                 <button
-                    onClick={onConfirm}
+                    onClick={() => onConfirm(quantity)}
                     disabled={loading}
                     className="flex-1 py-3 rounded-lg text-base font-semibold border-0 text-white cursor-pointer transition-opacity disabled:opacity-70 disabled:cursor-wait"
                     style={{ background: loading ? '#334155' : 'linear-gradient(135deg, #0ea5e9, #6366f1)' }}
                 >
-                    {loading ? 'Chargement…' : 'Réserver →'}
+                    {loading ? 'Chargement…' : `Réserver ${quantity > 1 ? `(×${quantity})` : '→'}`}
                 </button>
             </div>
         </div>
